@@ -117,4 +117,4 @@ def generate_response(user_message):
     return default_response + f"\n\n最終確認日: {LAST_UPDATED}"
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5001)

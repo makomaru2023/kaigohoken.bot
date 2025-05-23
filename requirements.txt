@@ -1,6 +1,6 @@
-Flask==2.0.1
-Werkzeug==2.0.1
-Jinja2==3.0.1
-itsdangerous==2.0.1
-click==8.0.1
-MarkupSafe==2.0.1
+streamlit==1.22.0
+pandas==1.5.3
+numpy==1.24.3
+markdown==3.4.3
+openai==1.16.0
+streamlit-chat==0.1.1
