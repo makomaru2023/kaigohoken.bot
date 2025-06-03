@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>リハビリ加算なび - 介護保険制度をもっとわかりやすく</title></title>
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;margin:0;background:#f5f5f5;color:#333;line-height:1.6}
+    header{background:#2c5aa0;color:#fff;padding:1rem 0;text-align:center}
+    main{max-width:1100px;margin:0 auto;padding:1rem}
+    section.card{background:#fff;padding:1.5rem;margin:1.5rem 0;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.1)}
+    h2{margin-top:0}
+    button{padding:.6rem 1.2rem;border:none;border-radius:4px;cursor:pointer;background:#2c5aa0;color:#fff;font-size:1rem}
+    button:hover{background:#1e3a6f}
+    mark{background:#fff3cd}
+    .info-box{background:#f0f7ff;border-left:4px solid #2c5aa0;padding:1rem;margin:1rem 0;border-radius:4px}
+    .warning-box{background:#fff3cd;border-left:4px solid #ffc107;padding:1rem;margin:1rem 0;border-radius:4px}
+    /* ---------- Categories ---------- */
+    .category-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem}
+    .category-card{background:#fff;padding:1rem;border:1px solid #ddd;border-radius:6px;cursor:pointer;transition:.2s}
+    .category-card:hover{box-shadow:0 2px 6px rgba(0,0,0,.15);transform:translateY(-2px)}
+    .category-card h3{margin:.3rem 0;font-size:1.1rem;color:#2c5aa0}
+    .category-card ul{list-style:none;padding-left:1rem;font-size:.85rem;color:#555}
+    .category-card li::before{content:"▸ ";color:#2c5aa0}
+    /* ---------- Modal ---------- */
+    .modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background-color:rgba(0,0,0,0.5)}
+    .modal-content{background-color:#fff;margin:5% auto;padding:2rem;width:90%;max-width:800px;max-height:80vh;overflow-y:auto;border-radius:8px;position:relative}
+    .close{position:absolute;right:1rem;top:1rem;font-size:28px;color:#aaa;cursor:pointer}
+    .close:hover{color:#000}
+    /* ---------- Table ---------- */
+    table{width:100%;border-collapse:collapse;margin:1rem 0}
+    th,td{border:1px solid #ddd;padding:8px;text-align:left}
+    th{background-color:#f0f7ff}
+    /* ---------- Calculator ---------- */
+    .calc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin:1rem 0}
+    .calc-grid label{display:block;margin-bottom:.3rem;font-weight:600}
+    .calc-grid select,.calc-grid input{width:100%;padding:.5rem;border:1px solid #ddd;border-radius:4px}
+    .checkbox-group{margin:1rem 0}
+    .checkbox-group label{display:block;margin:.5rem 0}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>リハビリ加算なび</h1>
+    <p style="font-size:.9rem;opacity:.9">介護保険制度をもっとわかりやすく - OT・PT・ST・ケアマネ向け</p>
+  </header>
+  <main>
+    <!-- ===== 検索セクション ===== -->
+    <section class="card">
+      <h2>キーワード検索</h2>
+      <input id="searchInput" placeholder="例: 訪問リハ、加算、人員基準" style="width:70%;padding:.6rem;border:2px solid #ddd;border-radius:4px" />
+      <button id="searchBtn" style="margin-left:.5rem">検索</button>
+      <div id="searchResults" style="margin-top:1rem"></div>
+    </section>
+
+    <!-- ===== カテゴリー ===== -->
+    <section class="card">
+      <h2>カテゴリーから探す</h2>
+      <div id="categoryGrid" class="category-grid"></div>
+    </section>
+
+    <!-- ===== FAQ ===== -->
+    <section class="card">
+      <h2>よくある質問 (FAQ)</h2>
+      <div id="faqList"></div>
+    </section>
+
+    <!-- ===== 計算ツール ===== -->
+    <section id="calculatorSection" class="card" style="display:none">
+      <h2>単位数計算ツール</h2>
+      <div class="calc-grid">
+        <div>
+          <label>サービス種別</label>
+          <select id="serviceType">
+            <option value="visiting">訪問リハビリテーション</option>
+            <option value="daycare">通所リハビリテーション</option>
+          </select>
+        </div>
+        <div>
+          <label>利用時間・規模</label>
+          <select id="timeScale"></select>
+        </div>
+        <div>
+          <label>回数/月</label>
+          <input id="frequency" type="number" value="8" min="1" max="31">
+        </div>
+        <div>
+          <label>利用者負担割合</label>
+          <select id="userRate">
+            <option value="0.1">1割負担</option>
+            <option value="0.2">2割負担</option>
+            <option value="0.3">3割負担</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="checkbox-group">
+        <h4>加算（複数選択可）</h4>
+        <div id="additionOptions"></div>
+      </div>
+      
+      <button id="calcBtn">計算する</button>
+      <div id="calcResult" style="display:none;margin-top:1rem;padding:1rem;background:#f0f7ff;border-radius:4px;font-weight:600"></div>
+    </section>
+
+    <!-- ===== 免責事項 ===== -->
+    <section class="card">
+      <p style="font-size:.9rem;color:#666">
+        <strong>〈免責〉</strong> 本ツールの情報は令和6年度介護報酬改定に基づいていますが、情報提供のみを目的としています。
+        実際の算定にあたっては、必ず最新の告示・通知をご確認の上、管轄の自治体へお問い合わせください。
+      </p>
+    </section>
+  </main>
+
+  <!-- モーダル -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <script>
+  // ---------- データ ----------
+  const database = {
+    visiting: {
+      title: "訪問リハビリテーション",
+      sub: ["基本報酬と加算", "人員基準・設備基準", "必要書類・様式", "医師の指示について"],
+      content: `
+        <h3>基本報酬（令和6年度）</h3>
+        <table>
+          <tr><th>サービス内容</th><th>単位数</th></tr>
+          <tr><td>訪問リハビリテーション費</td><td>307単位/回（20分）</td></tr>
+        </table>
+        
+        <h3>主な加算</h3>
+        <ul>
+          <li><strong>リハビリテーションマネジメント加算(A)イ</strong>: 230単位/月</li>
+          <li><strong>リハビリテーションマネジメント加算(A)ロ</strong>: 280単位/月</li>
+          <li><strong>リハビリテーションマネジメント加算(B)イ</strong>: 330単位/月</li>
+          <li><strong>リハビリテーションマネジメント加算(B)ロ</strong>: 380単位/月</li>
+          <li><strong>短期集中リハビリテーション実施加算</strong>: 200単位/日（退院後3ヶ月以内）</li>
+          <li><strong>移行支援加算</strong>: 17単位/日</li>
+        </ul>
+        
+        <h3>地域加算</h3>
+        <ul>
+          <li><strong>特別地域訪問リハビリテーション加算</strong>: 所定単位数の15/100</li>
+          <li><strong>中山間地域等における小規模事業所加算</strong>: 所定単位数の10/100</li>
+          <li><strong>中山間地域等に居住する者へのサービス提供加算</strong>: 所定単位数の5/100</li>
+        </ul>
+        
+        <div class="warning-box">
+          <strong>注意:</strong> 医師の指示書は3ヶ月ごとに更新が必要です。地域加算は該当地域のみ算定可能です。
+        </div>
+      `,
+      base: {"40min": 614, "60min": 921},
+      additions: [
+        {name: "リハマネ加算(A)イ", value: 230},
+        {name: "リハマネ加算(A)ロ", value: 280},
+        {name: "リハマネ加算(B)イ", value: 330},
+        {name: "リハマネ加算(B)ロ", value: 380},
+        {name: "短期集中リハ加算", value: 200},
+        {name: "移行支援加算", value: 17},
+        {name: "特別地域訪問リハ加算", value: 0, percent: 15},
+        {name: "中山間地域等小規模事業所加算", value: 0, percent: 10},
+        {name: "中山間地域等居住者サービス提供加算", value: 0, percent: 5}
+      ]
+    },
+    daycare: {
+      title: "通所リハビリテーション",
+      sub: ["規模別基本報酬", "リハマネ加算", "短期集中リハ加算", "送迎・入浴加算"],
+      content: `
+        <h3>基本報酬（令和6年度・要介護3の例）</h3>
+        <table>
+          <tr><th>提供時間</th><th>通常規模</th><th>大規模Ⅰ</th></tr>
+          <tr><td>1-2時間</td><td>426単位</td><td>412単位</td></tr>
+          <tr><td>3-4時間</td><td>596単位</td><td>576単位</td></tr>
+          <tr><td>6-7時間</td><td>974単位</td><td>942単位</td></tr>
+        </table>
+        
+        <h3>リハビリテーションマネジメント加算</h3>
+        <ul>
+          <li><strong>加算(A)イ</strong>: 560単位/月（6月以内）、240単位/月（6月超）</li>
+          <li><strong>加算(A)ロ</strong>: 593単位/月（6月以内）、273単位/月（6月超）</li>
+          <li><strong>加算(B)イ</strong>: 830単位/月（6月以内）、510単位/月（6月超）</li>
+          <li><strong>加算(B)ロ</strong>: 863単位/月（6月以内）、543単位/月（6月超）</li>
+        </ul>
+        
+        <h3>その他の主な加算</h3>
+        <ul>
+          <li><strong>短期集中個別リハビリテーション実施加算</strong>: 110単位/日</li>
+          <li><strong>生活行為向上リハビリテーション実施加算</strong>: 1,250単位/月（6月以内）</li>
+          <li><strong>リハビリテーション提供体制加算</strong>: 12～48単位/日（時間数による）</li>
+        </ul>
+      `,
+      base: {"1-2h": 426, "3-4h": 596, "6-7h": 974},
+      additions: [
+        {name: "リハマネ加算(A)イ（6月以内）", value: 560},
+        {name: "リハマネ加算(A)イ（6月超）", value: 240},
+        {name: "リハマネ加算(A)ロ（6月以内）", value: 593},
+        {name: "リハマネ加算(A)ロ（6月超）", value: 273},
+        {name: "リハマネ加算(B)イ（6月以内）", value: 830},
+        {name: "リハマネ加算(B)イ（6月超）", value: 510},
+        {name: "リハマネ加算(B)ロ（6月以内）", value: 863},
+        {name: "リハマネ加算(B)ロ（6月超）", value: 543},
+        {name: "短期集中個別リハ加算", value: 110},
+        {name: "生活行為向上リハ加算", value: 1250},
+        {name: "リハ提供体制加算", value: 24}
+      ]
+    },
+    facility: {
+      title: "介護老人保健施設",
+      sub: ["施設類型と報酬", "在宅復帰率", "リハビリ専門職配置", "個別リハビリ実施"],
+      content: `
+        <h3>施設類型と基本報酬</h3>
+        <p>在宅復帰・在宅療養支援等指標により5類型に分類</p>
+        <table>
+          <tr><th>施設類型</th><th>要介護3（多床室）</th><th>在宅復帰率</th></tr>
+          <tr><td>超強化型</td><td>913単位/日</td><td>50%超</td></tr>
+          <tr><td>在宅強化型</td><td>872単位/日</td><td>30%超</td></tr>
+          <tr><td>加算型</td><td>836単位/日</td><td>20%超</td></tr>
+        </table>
+        
+        <h3>リハビリテーション専門職の配置基準</h3>
+        <p>PT・OT・ST: 入所者100人に対し1名以上（常勤換算）</p>
+      `,
+      base: {}
+    },
+    addition: {
+      title: "主要加算の詳細",
+      sub: ["リハマネジメント加算", "短期集中リハビリ加算", "生活行為向上リハ加算", "算定要件一覧"],
+      content: `
+        <h3>訪問リハビリテーション リハマネ加算の区分</h3>
+        <div class="info-box">
+          <p><strong>A と B の違い</strong>: リハビリ会議開催の有無</p>
+          <p><strong>イ と ロ の違い</strong>: 医師の参加形態（イ:訪問、ロ:ICT等）</p>
+        </div>
+        
+        <h3>通所リハビリテーション リハマネ加算の区分</h3>
+        <div class="info-box">
+          <p><strong>6月以内・6月超</strong>: 利用開始からの期間で単位数が変動</p>
+          <p><strong>加算(B)</strong>: LIFE（科学的介護情報システム）へのデータ提出が必要</p>
+        </div>
+        
+        <h3>算定の注意点</h3>
+        <ul>
+          <li>リハマネ加算は1つしか算定できません（最も高い区分を選択）</li>
+          <li>短期集中リハ加算は退院・退所・認定から3ヶ月以内に限定</li>
+          <li>生活行為向上リハ加算は目標達成で終了（継続不可）</li>
+        </ul>
+      `
+    },
+    document: {
+      title: "書類・計画書",
+      sub: ["リハビリ計画書", "目標設定等支援・管理", "情報提供書", "会議録・カンファレンス"],
+      content: `
+        <h3>リハビリテーション計画書</h3>
+        <ul>
+          <li>作成時期: サービス開始前</li>
+          <li>更新頻度: 3ヶ月毎（状態変化時は随時）</li>
+          <li>記載内容: 心身機能、活動、参加の観点から目標設定</li>
+          <li>医師の関与: 共同作成または承認が必要</li>
+        </ul>
+        
+        <h3>リハビリテーション会議</h3>
+        <ul>
+          <li>参加者: 医師、PT/OT/ST、看護職員、介護職員、利用者・家族</li>
+          <li>開催時期: 開始時、3ヶ月毎</li>
+          <li>ICTの活用: テレビ電話等での参加可</li>
+        </ul>
+      `
+    },
+    calculator: {
+      title: "単位数計算ツール",
+      sub: ["基本報酬計算", "加算組み合わせ", "月額概算", "利用者負担額"],
+      content: ""
+    }
+  };
+
+  const faqData = [
+    {
+      q: "訪問リハのリハマネ加算(A)イとロの違いは？",
+      a: "イは医師が利用者宅を訪問して計画作成、ロはICT活用または医師が事業所で計画作成する場合です。単位数はイが230単位/月、ロが280単位/月です。"
+    },
+    {
+      q: "通所リハのリハマネ加算が6月で変わるのはなぜ？",
+      a: "利用開始から6月以内は集中的なマネジメントが必要なため高い単位設定。6月超は安定期として単位数が減少します。"
+    },
+    {
+      q: "訪問リハと通所リハの併用時の加算は？",
+      a: "原則併用可能ですが、短期集中リハ加算は同時算定不可。リハマネ加算はそれぞれのサービスで別々に算定可能です。"
+    },
+    {
+      q: "PT・OT・STの人員基準の違いは？",
+      a: "訪問リハ: 1名以上、通所リハ: 利用者100人に1名以上、老健: 入所者100人に1名以上（いずれも常勤換算）"
+    }
+  ];
+
+  const searchDB = [];
+  
+  function buildSearchDB() {
+    for (const k in database) {
+      searchDB.push({
+        type: 'category',
+        key: k,
+        title: database[k].title,
+        content: database[k].content,
+        searchText: (database[k].title + database[k].content + database[k].sub.join(' ')).toLowerCase()
+      });
+    }
+    faqData.forEach((f, i) => searchDB.push({
+      type: 'faq',
+      idx: i,
+      title: f.q,
+      content: f.a,
+      searchText: (f.q + f.a).toLowerCase()
+    }));
+  }
+
+  function strip(html) {
+    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  function highlight(t, ws) {
+    let o = t;
+    ws.forEach(w => {
+      o = o.replace(new RegExp(`(${w})`, 'gi'), '<mark>$1</mark>');
+    });
+    return o;
+  }
+
+  // ---------- UI Renderers ----------
+  function renderCategories() {
+    const grid = document.getElementById('categoryGrid');
+    grid.innerHTML = '';
+    for (const key of Object.keys(database)) {
+      if (key === 'calculator') continue;
+      const d = database[key];
+      grid.innerHTML += `
+        <div class="category-card" onclick="openCategory('${key}')">
+          <h3>${d.title}</h3>
+          <ul>${d.sub.map(s => `<li>${s}</li>`).join('')}</ul>
+        </div>
+      `;
+    }
+    // 計算ツールカード
+    const calc = database.calculator;
+    grid.innerHTML += `
+      <div class="category-card" onclick="showCalculator()">
+        <h3>${calc.title}</h3>
+        <ul>${calc.sub.map(s => `<li>${s}</li>`).join('')}</ul>
+      </div>
+    `;
+  }
+
+  function renderFAQ() {
+    const faqList = document.getElementById('faqList');
+    faqList.innerHTML = faqData.map((f, i) => `
+      <details>
+        <summary style="cursor:pointer;padding:.5rem 0;font-weight:600;color:#2c5aa0">${f.q}</summary>
+        <p style="margin:.5rem 0 0 1rem">${f.a}</p>
+      </details>
+    `).join('');
+  }
+
+  // ---------- 検索 ----------
+  function searchContent() {
+    const term = document.getElementById('searchInput').value.toLowerCase().trim();
+    const out = document.getElementById('searchResults');
+    if (term.length < 2) {
+      out.innerHTML = '<p style="color:#666">2文字以上入力してください</p>';
+      return;
+    }
+    const words = term.split(/\s+/);
+    const hits = searchDB.filter(i => words.every(w => i.searchText.includes(w)));
+    if (!hits.length) {
+      out.innerHTML = `<p style="color:#666">「${term}」に該当する情報が見つかりませんでした</p>`;
+      return;
+    }
+    out.innerHTML = hits.map(h => {
+      const snip = highlight(strip(h.content).slice(0, 120), words);
+      const cb = h.type === 'category' ? `openCategory('${h.key}')` : `expandFaq(${h.idx})`;
+      return `
+        <div style="margin:.5rem 0;padding:.8rem;background:#f9f9f9;border-radius:4px;cursor:pointer" onclick="${cb}">
+          <strong style="color:#2c5aa0">${h.title}</strong>
+          <span style="font-size:.8rem;color:#666;margin-left:.5rem">${h.type === 'category' ? 'カテゴリー' : 'FAQ'}</span>
+          <br>
+          <span style="font-size:.85rem;color:#555">${snip}...</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ---------- 動作 ----------
+  window.openCategory = key => {
+    const modal = document.getElementById('modal');
+    const content = document.getElementById('modalContent');
+    content.innerHTML = `<h2>${database[key].title}</h2>${database[key].content}`;
+    modal.style.display = 'block';
+  };
+
+  window.closeModal = () => {
+    document.getElementById('modal').style.display = 'none';
+  };
+
+  window.onclick = event => {
+    const modal = document.getElementById('modal');
+    if (event.target === modal) {
+      modal.style.display = 'none';
+    }
+  };
+
+  window.expandFaq = i => {
+    const el = document.querySelectorAll('#faqList details')[i];
+    el.open = true;
+    el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  window.showCalculator = () => {
+    document.getElementById('calculatorSection').style.display = 'block';
+    document.getElementById('calculatorSection').scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // ---------- 計算ロジック ----------
+  function updateTimeAndAdditions() {
+    const svc = document.getElementById('serviceType').value;
+    const timeSelect = document.getElementById('timeScale');
+    const additionDiv = document.getElementById('additionOptions');
+    
+    // 時間オプション更新
+    timeSelect.innerHTML = '';
+    Object.keys(database[svc].base).forEach(t => {
+      const label = svc === 'visiting' ? t : `${t}（通常規模）`;
+      timeSelect.innerHTML += `<option value="${t}">${label}</option>`;
+    });
+    
+    // 加算オプション更新
+    additionDiv.innerHTML = '';
+    if (database[svc].additions) {
+      database[svc].additions.forEach((add, i) => {
+        const label = add.percent ? 
+          `${add.name}（${add.percent}%加算）` : 
+          `${add.name}（${add.value}単位）`;
+        additionDiv.innerHTML += `
+          <label>
+            <input type="checkbox" value="${add.value}" data-percent="${add.percent || 0}" id="add_${i}">
+            ${label}
+          </label>
+        `;
+      });
+    }
+  }
+
+  function calc() {
+    const svc = document.getElementById('serviceType').value;
+    const timeKey = document.getElementById('timeScale').value;
+    const base = database[svc].base[timeKey] || 0;
+    const freq = parseInt(document.getElementById('frequency').value) || 0;
+    
+    // 基本報酬の計算
+    let baseTotal = base * freq;
+    
+    // 地域加算（パーセント加算）の計算
+    let percentAddTotal = 0;
+    document.querySelectorAll('#additionOptions input[type="checkbox"]:checked').forEach(cb => {
+      const percent = parseFloat(cb.getAttribute('data-percent')) || 0;
+      if (percent > 0) {
+        percentAddTotal += Math.floor(baseTotal * percent / 100);
+      }
+    });
+    
+    // 固定単位加算の計算
+    let fixedAddTotal = 0;
+    document.querySelectorAll('#additionOptions input[type="checkbox"]:checked').forEach(cb => {
+      const percent = parseFloat(cb.getAttribute('data-percent')) || 0;
+      if (percent === 0) {
+        fixedAddTotal += parseInt(cb.value) || 0;
+      }
+    });
+    
+    const total = baseTotal + percentAddTotal + fixedAddTotal;
+    const userRate = parseFloat(document.getElementById('userRate').value);
+    const userRatePercent = Math.round(userRate * 100);
+    const userCost = Math.floor(total * 10 * userRate); // 1単位10円
+    
+    document.getElementById('calcResult').style.display = 'block';
+    document.getElementById('calcResult').innerHTML = `
+      <p>基本報酬: ${base}単位 × ${freq}回 = ${baseTotal}単位</p>
+      ${percentAddTotal > 0 ? `<p>地域加算: ${percentAddTotal}単位</p>` : ''}
+      ${fixedAddTotal > 0 ? `<p>その他加算: ${fixedAddTotal}単位</p>` : ''}
+      <hr style="margin:.5rem 0">
+      <p style="font-size:1.2rem">月額合計: <strong>${total.toLocaleString()}</strong> 単位</p>
+      <p style="font-size:1.1rem;color:#2c5aa0">利用者負担額（${userRatePercent}割）: 約 <strong>${userCost.toLocaleString()}</strong> 円</p>
+      <p style="font-size:0.85rem;color:#666;margin-top:.5rem">
+        ※ 地域加算は該当地域でのみ算定可能です<br>
+        ※ 1単位=10円で計算（地域により異なる場合があります）
+      </p>
+    `;
+  }
+
+  // ---------- 初期化 ----------
+  document.addEventListener('DOMContentLoaded', () => {
+    buildSearchDB();
+    renderCategories();
+    renderFAQ();
+    updateTimeAndAdditions();
+    
+    document.getElementById('searchBtn').onclick = searchContent;
+    document.getElementById('searchInput').addEventListener('keypress', e => {
+      if (e.key === 'Enter') searchContent();
+    });
+    document.getElementById('serviceType').onchange = updateTimeAndAdditions;
+    document.getElementById('calcBtn').onclick = calc;
+  });
+  </script>
+</body>
+</html>
