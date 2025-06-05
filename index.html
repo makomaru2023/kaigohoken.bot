@@ -37,6 +37,7 @@
     .calc-grid select,.calc-grid input{width:100%;padding:.5rem;border:1px solid #ddd;border-radius:4px}
     .checkbox-group{margin:1rem 0}
     .checkbox-group label{display:block;margin:.5rem 0}
+    .history-actions{margin:1rem 0;display:flex;gap:.5rem}
   </style>
 </head>
 <body>
@@ -92,6 +93,14 @@
             <option value="0.3">3割負担</option>
           </select>
         </div>
+        <div>
+          <label>単位あたり金額(円)</label>
+          <input id="unitPrice" type="number" value="10" step="0.1">
+        </div>
+        <div>
+          <label>シミュレーション月数</label>
+          <input id="monthCount" type="number" value="1" min="1" max="12">
+        </div>
       </div>
       
       <div class="checkbox-group">
@@ -101,6 +110,15 @@
       
       <button id="calcBtn">計算する</button>
       <div id="calcResult" style="display:none;margin-top:1rem;padding:1rem;background:#f0f7ff;border-radius:4px;font-weight:600"></div>
+      <div id="historySection" style="display:none">
+        <h3>計算履歴</h3>
+        <div id="historyList"></div>
+        <div class="history-actions">
+          <button onclick="compareSelected()">選択した履歴を比較</button>
+          <button onclick="clearHistory()">履歴をクリア</button>
+        </div>
+        <div id="compareResult"></div>
+      </div>
     </section>
 
     <!-- ===== 免責事項 ===== -->
@@ -457,6 +475,8 @@
     const timeKey = document.getElementById('timeScale').value;
     const base = database[svc].base[timeKey] || 0;
     const freq = parseInt(document.getElementById('frequency').value) || 0;
+    const unitPrice = parseFloat(document.getElementById('unitPrice').value) || 10;
+    const months = parseInt(document.getElementById('monthCount').value) || 1;
     
     // 基本報酬の計算
     let baseTotal = base * freq;
@@ -479,10 +499,12 @@
       }
     });
     
-    const total = baseTotal + percentAddTotal + fixedAddTotal;
+    const totalPerMonth = baseTotal + percentAddTotal + fixedAddTotal;
+    const totalAll = totalPerMonth * months;
     const userRate = parseFloat(document.getElementById('userRate').value);
     const userRatePercent = Math.round(userRate * 100);
-    const userCost = Math.floor(total * 10 * userRate); // 1単位10円
+    const costPerMonth = Math.floor(totalPerMonth * unitPrice * userRate);
+    const costAll = Math.floor(costPerMonth * months);
     
     document.getElementById('calcResult').style.display = 'block';
     document.getElementById('calcResult').innerHTML = `
@@ -490,13 +512,74 @@
       ${percentAddTotal > 0 ? `<p>地域加算: ${percentAddTotal}単位</p>` : ''}
       ${fixedAddTotal > 0 ? `<p>その他加算: ${fixedAddTotal}単位</p>` : ''}
       <hr style="margin:.5rem 0">
-      <p style="font-size:1.2rem">月額合計: <strong>${total.toLocaleString()}</strong> 単位</p>
-      <p style="font-size:1.1rem;color:#2c5aa0">利用者負担額（${userRatePercent}割）: 約 <strong>${userCost.toLocaleString()}</strong> 円</p>
+      <p style="font-size:1.2rem">月額合計: <strong>${totalPerMonth.toLocaleString()}</strong> 単位</p>
+      ${months > 1 ? `<p>総計 (${months}ヶ月): <strong>${totalAll.toLocaleString()}</strong> 単位</p>` : ''}
+      <p style="font-size:1.1rem;color:#2c5aa0">利用者負担額（${userRatePercent}割）: 約 <strong>${costPerMonth.toLocaleString()}</strong> 円/月</p>
+      ${months > 1 ? `<p style="font-size:1.1rem;color:#2c5aa0">総負担額 (${months}ヶ月): 約 <strong>${costAll.toLocaleString()}</strong> 円</p>` : ''}
       <p style="font-size:0.85rem;color:#666;margin-top:.5rem">
         ※ 地域加算は該当地域でのみ算定可能です<br>
-        ※ 1単位=10円で計算（地域により異なる場合があります）
+        ※ 1単位=${unitPrice}円で計算（地域により異なる場合があります）
       </p>
-    `;
+      `;
+
+    // 履歴保存
+    const history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
+    const adds = Array.from(document.querySelectorAll('#additionOptions input[type="checkbox"]'))
+      .filter(cb => cb.checked)
+      .map(cb => cb.parentNode.textContent.trim());
+    history.push({
+      date: new Date().toISOString(),
+      service: svc,
+      time: timeKey,
+      freq,
+      months,
+      unitPrice,
+      additions: adds,
+      total: totalPerMonth,
+      cost: costPerMonth
+    });
+    if (history.length > 20) history.shift();
+    localStorage.setItem('calcHistory', JSON.stringify(history));
+    updateHistory();
+  }
+
+  function updateHistory() {
+    const histDiv = document.getElementById('historySection');
+    const list = document.getElementById('historyList');
+    const history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
+    if (!history.length) {
+      histDiv.style.display = 'none';
+      list.innerHTML = '<p style="color:#666">履歴はありません</p>';
+      document.getElementById('compareResult').innerHTML = '';
+      return;
+    }
+    histDiv.style.display = 'block';
+    let html = '<table><tr><th></th><th>日付</th><th>サービス</th><th>回数</th><th>月数</th><th>合計単位</th><th>負担額</th></tr>';
+    history.slice().reverse().forEach((h, i) => {
+      const idx = history.length - 1 - i;
+      html += `<tr><td><input type="checkbox" class="history-check" data-index="${idx}"></td><td>${new Date(h.date).toLocaleDateString()}</td><td>${h.service === 'visiting' ? '訪問' : '通所'}</td><td>${h.freq}</td><td>${h.months}</td><td>${h.total.toLocaleString()}</td><td>${h.cost.toLocaleString()}</td></tr>`;
+    });
+    html += '</table>';
+    list.innerHTML = html;
+  }
+
+  function clearHistory() {
+    localStorage.removeItem('calcHistory');
+    updateHistory();
+  }
+
+  function compareSelected() {
+    const checks = document.querySelectorAll('.history-check:checked');
+    if (checks.length !== 2) {
+      alert('2つ選択してください');
+      return;
+    }
+    const history = JSON.parse(localStorage.getItem('calcHistory') || '[]');
+    const a = history[parseInt(checks[0].getAttribute('data-index'))];
+    const b = history[parseInt(checks[1].getAttribute('data-index'))];
+    const du = b.total - a.total;
+    const dc = b.cost - a.cost;
+    document.getElementById('compareResult').innerHTML = `<p>差分: ${du >= 0 ? '+' : ''}${du.toLocaleString()} 単位, ${dc >= 0 ? '+' : ''}${dc.toLocaleString()} 円</p>`;
   }
 
   // ---------- 初期化 ----------
@@ -505,6 +588,7 @@
     renderCategories();
     renderFAQ();
     updateTimeAndAdditions();
+    updateHistory();
     
     document.getElementById('searchBtn').onclick = searchContent;
     document.getElementById('searchInput').addEventListener('keypress', e => {
